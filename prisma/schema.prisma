@@ -1,0 +1,218 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  role      Role     @default(PARENT)
+  name      String
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  parentProfile   ParentProfile?
+  adminProfile    AdminProfile?
+  applications    Application[]
+  payments        Payment[]
+  notifications   Notification[]
+
+  @@map("users")
+}
+
+model ParentProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  address   String?
+  medicalInstructions String?
+  signature String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("parent_profiles")
+}
+
+model AdminProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  position  String?
+  department String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("admin_profiles")
+}
+
+model Application {
+  id                 String            @id @default(cuid())
+  applicationNumber  String            @unique
+  parentId           String
+  parent             User              @relation(fields: [parentId], references: [id])
+  status             ApplicationStatus @default(PENDING)
+  submittedAt        DateTime          @default(now())
+  reviewedAt         DateTime?
+  reviewedBy         String?
+  rejectionReason    String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  // Relations
+  students           Student[]
+  notifications      Notification[]
+
+  @@map("applications")
+}
+
+model Student {
+  id              String      @id @default(cuid())
+  applicationId   String
+  application     Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  surname         String
+  otherName       String
+  dateOfBirthDay  String
+  dateOfBirthMonth String
+  dateOfBirthYear String
+  gender          Gender
+  stateOfOrigin   String
+  nationality     String
+  religion        String
+  classSeekingAdmission String
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relations
+  enrollments     Enrollment[]
+  feeStructures   FeeStructure[]
+
+  @@map("students")
+}
+
+model Enrollment {
+  id           String   @id @default(cuid())
+  studentId    String
+  student      Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  academicYear String
+  grade        String
+  status       EnrollmentStatus @default(ACTIVE)
+  enrolledAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("enrollments")
+}
+
+model FeeStructure {
+  id           String   @id @default(cuid())
+  studentId    String
+  student      Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  academicYear String
+  termName     String
+  feeType      FeeType
+  amount       Decimal  @db.Decimal(10, 2)
+  dueDate      DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  payments     Payment[]
+
+  @@map("fee_structures")
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  paymentNumber   String        @unique
+  parentId        String
+  parent          User          @relation(fields: [parentId], references: [id])
+  feeStructureId  String
+  feeStructure    FeeStructure  @relation(fields: [feeStructureId], references: [id])
+  amount          Decimal       @db.Decimal(10, 2)
+  status          PaymentStatus @default(PENDING)
+  paymentMethod   String?
+  transactionId   String?
+  paidAt          DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("payments")
+}
+
+model Notification {
+  id            String           @id @default(cuid())
+  userId        String
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  applicationId String?
+  application   Application?     @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  title         String
+  message       String
+  type          NotificationType
+  isRead        Boolean          @default(false)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@map("notifications")
+}
+
+// Enums
+enum Role {
+  PARENT
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum ApplicationStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  INACTIVE
+  GRADUATED
+  TRANSFERRED
+}
+
+enum FeeType {
+  TUITION
+  REGISTRATION
+  UNIFORM
+  BOOKS
+  TRANSPORT
+  MEALS
+  EXTRACURRICULAR
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum NotificationType {
+  APPLICATION_SUBMITTED
+  APPLICATION_APPROVED
+  APPLICATION_REJECTED
+  PAYMENT_DUE
+  PAYMENT_RECEIVED
+  GENERAL
+}
